@@ -1,0 +1,93 @@
+use auth_service::Application;
+use serde_json;
+
+pub struct TestApp {
+    pub address: String,
+    pub http_client: reqwest::Client,
+}
+
+impl TestApp {
+    pub async fn new() -> Self {
+        let app = Application::build("127.0.0.1:0")
+            .await
+            .expect("Failed to build app");
+
+        let address = format!("http://{}", app.address.clone());
+
+        // Run the auth service in a separate async task
+        // to avoid blocking the main test thread.
+        #[allow(clippy::let_undescore_future)]
+        let _ = tokio::spawn(app.run());
+
+        // Create a Reqwest http client instance
+        // let http_client = todo!();
+        let http_client = reqwest::Client::new();
+
+        // Create new 'TestApp' instance and return it
+        Self {
+            address,
+            http_client,
+        }
+    }
+
+    /// Sends a GET request to the root endpoint of the test application.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `reqwest::Response` containing the server's response.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the request fails to execute.
+    pub async fn get_root(&self) -> reqwest::Response {
+        self.http_client
+            .get(format!("{}/", self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn post_signup(&self, body: serde_json::Value) -> reqwest::Response {
+        self.http_client
+            .post(format!("{}/signup", self.address))
+            .json(&body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn post_login(&self, body: serde_json::Value) -> reqwest::Response {
+        self.http_client
+            .post(format!("{}/login", self.address))
+            .json(&body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn post_logout(&self) -> reqwest::Response {
+        self.http_client
+            .post(format!("{}/logout", self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn post_verify_2fa(&self, body: serde_json::Value) -> reqwest::Response {
+        self.http_client
+            .post(format!("{}/verify-2fa", self.address))
+            .json(&body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn post_verify_token(&self, body: serde_json::Value) -> reqwest::Response {
+        self.http_client
+            .post(format!("{}/verify-token", self.address))
+            .json(&body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+}
