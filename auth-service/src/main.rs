@@ -1,5 +1,3 @@
-// use axum::{response::Html, routing::get, routing::post, Router, http::StatusCode, response::IntoResponse};
-// use tower_http::services::ServeDir;
 use auth_service::Application;
 
 #[tokio::main]
