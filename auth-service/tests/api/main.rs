@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 #[tokio::main]
 async fn main() {
     // Create user store and app state
-    let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+    let user_store = Arc::new(RwLock::new(HashmapUserStore::default())) as Arc<RwLock<dyn auth_service::domain::UserStore + Send + Sync>>;
     let app_state = AppState::new(user_store);
 
     // Start the application

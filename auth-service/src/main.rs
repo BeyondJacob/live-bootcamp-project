@@ -8,7 +8,7 @@ async fn main() {
     // This is needed for Docker to work, which we will add later on.
     // See: https://stackoverflow.com/questions/39525820/docker-port-forwarding-not-working
 
-    let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+    let user_store = Arc::new(RwLock::new(HashmapUserStore::default())) as Arc<RwLock<dyn auth_service::domain::UserStore + Send + Sync>>;
     let app_state = AppState::new(user_store);
 
     let app = Application::build(app_state, "0.0.0.0:3000")
