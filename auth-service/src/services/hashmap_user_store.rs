@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::domain::{User, UserStore, UserStoreError};
+use crate::domain::{Email, Password, User, UserStore, UserStoreError};
 
 #[derive(Default)]
 pub struct HashmapUserStore {
-    users: HashMap<String, User>,
+    users: HashMap<Email, User>,
 }
 
 #[async_trait::async_trait]
@@ -17,17 +17,17 @@ impl UserStore for HashmapUserStore {
         Ok(())
     }
 
-    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         self.users
             .get(email)
             .cloned()
             .ok_or(UserStoreError::UserNotFound)
     }
 
-    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+    async fn validate_user(&self, email: &Email, password: &Password) -> Result<(), UserStoreError> {
         match self.users.get(email) {
             Some(user) => {
-                if user.password == password {
+                if &user.password == password {
                     Ok(())
                 } else {
                     Err(UserStoreError::InvalidCredentials)
@@ -46,8 +46,8 @@ mod tests {
     async fn test_add_user() {
         let mut store = HashmapUserStore::default();
         let user = User {
-            email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            email: Email::parse("test@example.com".to_string()).unwrap(),
+            password: Password::parse("password123".to_string()).unwrap(),
             requires_2fa: false,
         };
         
@@ -65,34 +65,34 @@ mod tests {
     async fn test_get_user() {
         let mut store = HashmapUserStore::default();
         let user = User {
-            email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            email: Email::parse("test@example.com".to_string()).unwrap(),
+            password: Password::parse("password123".to_string()).unwrap(),
             requires_2fa: true,
         };
         
         // Test user not found
         assert_eq!(
-            store.get_user("test@example.com").await,
+            store.get_user(&Email::parse("test@example.com".to_string()).unwrap()).await,
             Err(UserStoreError::UserNotFound)
         );
         
         // Add user and test successful retrieval
         store.add_user(user.clone()).await.unwrap();
-        assert_eq!(store.get_user("test@example.com").await, Ok(user));
+        assert_eq!(store.get_user(&Email::parse("test@example.com".to_string()).unwrap()).await, Ok(user));
     }
 
     #[tokio::test]
     async fn test_validate_user() {
         let mut store = HashmapUserStore::default();
         let user = User {
-            email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            email: Email::parse("test@example.com".to_string()).unwrap(),
+            password: Password::parse("password123".to_string()).unwrap(),
             requires_2fa: false,
         };
         
         // Test user not found
         assert_eq!(
-            store.validate_user("test@example.com", "password123").await,
+            store.validate_user(&Email::parse("test@example.com".to_string()).unwrap(), &Password::parse("password123".to_string()).unwrap()).await,
             Err(UserStoreError::UserNotFound)
         );
         
@@ -100,11 +100,11 @@ mod tests {
         store.add_user(user).await.unwrap();
         
         // Test successful validation
-        assert!(store.validate_user("test@example.com", "password123").await.is_ok());
+        assert!(store.validate_user(&Email::parse("test@example.com".to_string()).unwrap(), &Password::parse("password123".to_string()).unwrap()).await.is_ok());
         
         // Test invalid credentials
         assert_eq!(
-            store.validate_user("test@example.com", "wrongpassword").await,
+            store.validate_user(&Email::parse("test@example.com".to_string()).unwrap(), &Password::parse("wrongpassword".to_string()).unwrap()).await,
             Err(UserStoreError::InvalidCredentials)
         );
     }
