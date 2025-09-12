@@ -1,7 +1,7 @@
-use axum::{extract::rejection::JsonRejection, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::Deserialize;
 
-use crate::utils::auth::validate_token;
+use crate::{app_state::AppState, utils::auth::validate_token};
 
 #[derive(Debug, Deserialize)]
 pub struct VerifyTokenRequest {
@@ -9,13 +9,19 @@ pub struct VerifyTokenRequest {
 }
 
 pub async fn verify_token(
-    request: Result<Json<VerifyTokenRequest>, JsonRejection>,
-) -> Result<impl IntoResponse, StatusCode> {
-    let Json(body) = request.map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
+    State(state): State<AppState>,
+    Json(body): Json<VerifyTokenRequest>,
+) -> impl IntoResponse {
+    // First validate the token
+    if let Err(_) = validate_token(&body.token).await {
+        return StatusCode::UNAUTHORIZED;
+    }
     
-    // Validate the token
-    match validate_token(&body.token).await {
-        Ok(_) => Ok(StatusCode::OK),
-        Err(_) => Err(StatusCode::UNAUTHORIZED),
+    // Then check if it's banned
+    let banned_store = state.banned_token_store.read().await;
+    match banned_store.is_banned(&body.token).await {
+        Ok(true) => StatusCode::UNAUTHORIZED,
+        Ok(false) => StatusCode::OK,
+        Err(_) => StatusCode::UNAUTHORIZED,
     }
 }
