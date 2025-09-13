@@ -69,7 +69,21 @@ async fn handle_2fa(
     // Store the ID and code in our 2FA code store. Return `AuthAPIError::UnexpectedError` if the operation fails
     let mut two_fa_code_store = state.two_fa_code_store.write().await;
     if two_fa_code_store
-        .add_code(email.clone(), login_attempt_id.clone(), two_fa_code)
+        .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
+        .await
+        .is_err()
+    {
+        return (jar, Err(AuthAPIError::UnexpectedError));
+    }
+
+    // TODO: send 2FA code via the email client. Return `AuthAPIError::UnexpectedError` if the operation fails.
+    if state
+        .email_client
+        .send_email(
+            email,
+            "Your 2FA Code",
+            &format!("Your 2FA code is: {}", two_fa_code.as_ref()),
+        )
         .await
         .is_err()
     {
