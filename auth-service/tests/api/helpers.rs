@@ -1,6 +1,9 @@
 use auth_service::{
-    app_state::{AppState, BannedTokenStoreType},
-    services::{hashmap_user_store::HashmapUserStore, hashset_banned_token_store::HashsetBannedTokenStore},
+    app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
+    services::{
+        hashmap_two_fa_code_store::HashmapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
+        hashset_banned_token_store::HashsetBannedTokenStore,
+    },
     utils::constants::test,
     Application,
 };
@@ -13,16 +16,21 @@ use uuid::Uuid;
 pub struct TestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
-    pub http_client: reqwest::Client,
     pub banned_token_store: BannedTokenStoreType,
+    pub two_fa_code_store: TwoFACodeStoreType, // New!
+    pub http_client: reqwest::Client,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
-        let user_store = Arc::new(RwLock::new(HashmapUserStore::default())) as Arc<RwLock<dyn auth_service::domain::UserStore + Send + Sync>>;
-        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default())) as Arc<RwLock<dyn auth_service::domain::BannedTokenStore + Send + Sync>>;
-        let banned_token_store_clone = banned_token_store.clone();
-        let app_state = AppState::new(user_store, banned_token_store);
+        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+        let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+        let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default())); // New!
+        let app_state = AppState::new(
+            user_store,
+            banned_token_store.clone(),
+            two_fa_code_store.clone(), // New!
+        );
 
         let app = Application::build(app_state, test::APP_ADDRESS)
             .await
@@ -45,8 +53,9 @@ impl TestApp {
         Self {
             address,
             cookie_jar,
+            banned_token_store,
+            two_fa_code_store, // New!
             http_client,
-            banned_token_store: banned_token_store_clone,
         }
     }
 
