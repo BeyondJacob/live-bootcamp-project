@@ -6,7 +6,7 @@ use serde_json::json;
 
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // Send a malformed JSON body (missing the "token" field)
     let body = json!({
@@ -16,11 +16,13 @@ async fn should_return_422_if_malformed_input() {
     let response = app.post_verify_token(&body).await;
 
     assert_eq!(response.status().as_u16(), 422);
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_200_valid_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // First, signup and login a user to get a valid JWT token
     let email = get_random_email();
@@ -62,11 +64,13 @@ async fn should_return_200_valid_token() {
     
     let response = app.post_verify_token(&body).await;
     assert_eq!(response.status().as_u16(), 200);
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // Send an invalid token
     let body = json!({
@@ -75,11 +79,13 @@ async fn should_return_401_if_invalid_token() {
 
     let response = app.post_verify_token(&body).await;
     assert_eq!(response.status().as_u16(), 401);
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_banned_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // First, signup and login a user to get a valid JWT token
     let email = get_random_email();
@@ -126,4 +132,6 @@ async fn should_return_401_if_banned_token() {
     
     let response = app.post_verify_token(&body).await;
     assert_eq!(response.status().as_u16(), 401);
+
+    app.clean_up().await;
 }

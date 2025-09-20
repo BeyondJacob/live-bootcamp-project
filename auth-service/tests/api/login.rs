@@ -9,7 +9,7 @@ use serde_json::json;
 
 #[tokio::test]
 async fn should_return_422_if_malformed_credentials() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // Test with malformed JSON (missing password field)
     let test_cases = vec![
@@ -32,11 +32,13 @@ async fn should_return_422_if_malformed_credentials() {
         let response = app.post_login(&invalid_body).await;
         assert_eq!(response.status().as_u16(), 422);
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let test_cases = vec![
         json!({
@@ -67,11 +69,13 @@ async fn should_return_400_if_invalid_input() {
             .expect("Failed to deserialize error response");
         assert_eq!(error_response.error, "Invalid credentials");
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     // First, create a user to test against
     let valid_email = get_random_email();
@@ -111,11 +115,13 @@ async fn should_return_401_if_incorrect_credentials() {
             .expect("Failed to deserialize error response");
         assert_eq!(error_response.error, "Incorrect credentials");
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -144,11 +150,13 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
         .expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -179,4 +187,6 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     assert_eq!(json_body.message, "2FA required".to_owned());
 
     // TODO: assert that `json_body.login_attempt_id` is stored inside `app.two_fa_code_store`
+
+    app.clean_up().await;
 }
