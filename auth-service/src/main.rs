@@ -1,15 +1,15 @@
 use auth_service::{
     app_state::AppState, 
-    get_postgres_pool,
+    get_postgres_pool, get_redis_client,
     services::{
         data_stores::{
             postgres_user_store::PostgresUserStore,
-            hashset_banned_token_store::HashsetBannedTokenStore,
+            redis_banned_token_store::RedisBannedTokenStore,
             hashmap_two_fa_code_store::HashmapTwoFACodeStore,
         },
         mock_email_client::MockEmailClient,
     }, 
-    utils::constants::{prod, DATABASE_URL},
+    utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
     Application,
 };
 use sqlx::PgPool;
@@ -19,13 +19,14 @@ use tokio::sync::RwLock;
 #[tokio::main]
 async fn main() {
     let pg_pool = configure_postgresql().await;
+    let redis_conn = Arc::new(RwLock::new(configure_redis()));
 
     // Here we are using ip 0.0.0.0 so the service is listening on all the configured network interfaces.
     // This is needed for Docker to work, which we will add later on.
     // See: https://stackoverflow.com/questions/39525820/docker-port-forwarding-not-working
 
     let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool))) as Arc<RwLock<dyn auth_service::domain::UserStore + Send + Sync>>;
-    let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default())) as Arc<RwLock<dyn auth_service::domain::BannedTokenStore + Send + Sync>>;
+    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_conn))) as Arc<RwLock<dyn auth_service::domain::BannedTokenStore + Send + Sync>>;
     let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default())) as Arc<RwLock<dyn auth_service::domain::TwoFACodeStore + Send + Sync>>;
     let email_client = Arc::new(MockEmailClient) as Arc<dyn auth_service::domain::EmailClient + Send + Sync>;
     let app_state = AppState::new(user_store, banned_token_store, two_fa_code_store, email_client);
@@ -50,6 +51,13 @@ async fn configure_postgresql() -> PgPool {
         .expect("Failed to run migrations");
 
     pg_pool
+}
+
+fn configure_redis() -> redis::Connection {
+    get_redis_client(REDIS_HOST_NAME.to_owned())
+        .expect("Failed to get Redis client")
+        .get_connection()
+        .expect("Failed to get Redis connection")
 }
 
 // async fn hello_handler() -> Html<&'static str> {
