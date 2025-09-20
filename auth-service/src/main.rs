@@ -5,7 +5,7 @@ use auth_service::{
         data_stores::{
             postgres_user_store::PostgresUserStore,
             redis_banned_token_store::RedisBannedTokenStore,
-            hashmap_two_fa_code_store::HashmapTwoFACodeStore,
+            redis_two_fa_code_store::RedisTwoFACodeStore,
         },
         mock_email_client::MockEmailClient,
     }, 
@@ -26,8 +26,8 @@ async fn main() {
     // See: https://stackoverflow.com/questions/39525820/docker-port-forwarding-not-working
 
     let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool))) as Arc<RwLock<dyn auth_service::domain::UserStore + Send + Sync>>;
-    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_conn))) as Arc<RwLock<dyn auth_service::domain::BannedTokenStore + Send + Sync>>;
-    let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default())) as Arc<RwLock<dyn auth_service::domain::TwoFACodeStore + Send + Sync>>;
+    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_conn.clone()))) as Arc<RwLock<dyn auth_service::domain::BannedTokenStore + Send + Sync>>;
+    let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(redis_conn))) as Arc<RwLock<dyn auth_service::domain::TwoFACodeStore + Send + Sync>>;
     let email_client = Arc::new(MockEmailClient) as Arc<dyn auth_service::domain::EmailClient + Send + Sync>;
     let app_state = AppState::new(user_store, banned_token_store, two_fa_code_store, email_client);
 
