@@ -7,6 +7,7 @@ use axum::{
 };
 use domain::AuthAPIError;
 use serde::{Deserialize, Serialize};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::error::Error;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
@@ -92,4 +93,9 @@ impl Application {
         println!("listening on {}", self.address);
         self.server.await
     }
+}
+
+pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
+    // Create a new PostgreSQL connection pool
+    PgPoolOptions::new().max_connections(5).connect(url).await
 }
