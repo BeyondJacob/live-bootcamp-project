@@ -64,13 +64,27 @@ jobs:
     - name: Install sqlx-cli
       run: cargo install sqlx-cli --no-default-features --features postgres
 
+    - name: Create auth database
+      run: |
+        export PGPASSWORD=testpassword
+        psql -h localhost -U postgres -c "CREATE DATABASE auth_test;"
+
+    - name: Run migrations
+      working-directory: ./auth-service
+      run: |
+        export DATABASE_URL=postgres://postgres:testpassword@localhost:5432/auth_test
+        sqlx migrate run
+
     - name: Build and test auth-service code
       working-directory: ./auth-service
       run: |
         export JWT_SECRET=secret
         export DATABASE_URL=postgres://postgres:testpassword@localhost:5432
         export REDIS_HOST_NAME=localhost
-        cargo build --verbose
+        # For SQLx compile-time verification
+        export DATABASE_URL_FOR_BUILD=postgres://postgres:testpassword@localhost:5432/auth_test
+        DATABASE_URL=$DATABASE_URL_FOR_BUILD cargo build --verbose
+        # For runtime tests
         cargo test --verbose
 
       # Set up Docker Buildx for multi-platform builds
