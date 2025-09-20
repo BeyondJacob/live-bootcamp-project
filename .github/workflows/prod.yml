@@ -61,12 +61,16 @@ jobs:
         cargo build --verbose
         cargo test --verbose
 
+    - name: Install sqlx-cli
+      run: cargo install sqlx-cli --no-default-features --features postgres
+
     - name: Build and test auth-service code
       working-directory: ./auth-service
       run: |
         export JWT_SECRET=secret
         export DATABASE_URL=postgres://postgres:testpassword@localhost:5432/postgres
         export REDIS_HOST_NAME=localhost
+        sqlx migrate run
         cargo build --verbose
         cargo test --verbose
 
