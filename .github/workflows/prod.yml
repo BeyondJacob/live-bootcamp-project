@@ -68,9 +68,8 @@ jobs:
       working-directory: ./auth-service
       run: |
         export JWT_SECRET=secret
-        export DATABASE_URL=postgres://postgres:testpassword@localhost:5432/postgres
+        export DATABASE_URL=postgres://postgres:testpassword@localhost:5432
         export REDIS_HOST_NAME=localhost
-        sqlx migrate run
         cargo build --verbose
         cargo test --verbose
 
