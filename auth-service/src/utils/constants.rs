@@ -9,7 +9,6 @@ lazy_static! {
     pub static ref REDIS_HOST_NAME: String = set_redis_host();
 }
 
-
 fn set_token() -> String {
     dotenv().ok(); // Load environment variables
     let secret = std_env::var(env::JWT_SECRET_ENV_VAR).expect("JWT_SECRET must be set.");
