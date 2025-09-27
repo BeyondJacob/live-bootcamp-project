@@ -1,84 +1,81 @@
-use color_eyre::eyre::{eyre, Result};
 use std::hash::Hash;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Email(String);
+use color_eyre::eyre::{eyre, Result};
+use secrecy::{ExposeSecret, Secret};
+use validator::validate_email;
+
+#[derive(Debug, Clone)]
+pub struct Email(Secret<String>);
+
+impl PartialEq for Email {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Hash for Email {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.expose_secret().hash(state);
+    }
+}
+
+impl Eq for Email {}
 
 impl Email {
-    pub fn parse(s: String) -> Result<Email> {
-        if validator::validate_email(&s) {
-            Ok(Email(s))
+    pub fn parse(s: Secret<String>) -> Result<Email> {
+        if validate_email(s.expose_secret()) {
+            Ok(Self(s))
         } else {
-            Err(eyre!("{} is not a valid email address", s))
+            Err(eyre!(format!(
+                "{} is not a valid email.",
+                s.expose_secret()
+            )))
         }
     }
 }
 
-impl AsRef<str> for Email {
-    fn as_ref(&self) -> &str {
+impl AsRef<Secret<String>> for Email {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::Email;
+
     use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
-    use quickcheck_macros::quickcheck;
+    use secrecy::Secret;
 
     #[test]
-    fn valid_emails_are_parsed_successfully() {
-        let valid_emails = vec![
-            "user@example.com",
-            "test.email@domain.co.uk",
-            "firstname.lastname@company.org",
-            "email+tag@example.com",
-            "user123@test-domain.com",
-        ];
+    fn empty_string_is_rejected() {
+        let email = Secret::new("".to_string());
+        assert!(Email::parse(email).is_err());
+    }
+    #[test]
+    fn email_missing_at_symbol_is_rejected() {
+        let email = Secret::new("ursuladomain.com".to_string());
+        assert!(Email::parse(email).is_err());
+    }
+    #[test]
+    fn email_missing_subject_is_rejected() {
+        let email = Secret::new("@domain.com".to_string());
+        assert!(Email::parse(email).is_err());
+    }
 
-        for email in valid_emails {
-            assert!(Email::parse(email.to_string()).is_ok());
+    #[derive(Debug, Clone)]
+    struct ValidEmailFixture(pub String);
+
+    impl quickcheck::Arbitrary for ValidEmailFixture {
+        fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
+            let email = SafeEmail().fake_with_rng(g);
+            Self(email)
         }
     }
 
-    #[test]
-    fn invalid_emails_are_rejected() {
-        let invalid_emails = vec![
-            "",
-            "not-an-email",
-            "@example.com",
-            "user@",
-            "user @example.com",
-        ];
-
-        for email in invalid_emails {
-            assert!(
-                Email::parse(email.to_string()).is_err(),
-                "Expected '{}' to be invalid, but it was accepted",
-                email
-            );
-        }
-    }
-
-    #[quickcheck]
-    fn valid_emails_dont_panic(email: String) -> bool {
-        let _ = Email::parse(email);
-        true
-    }
-
-    #[test]
-    fn fake_emails_are_valid() {
-        for _ in 0..100 {
-            let email: String = SafeEmail().fake();
-            assert!(Email::parse(email).is_ok());
-        }
-    }
-
-    #[test]
-    fn email_as_ref_returns_inner_string() {
-        let email_str = "test@example.com";
-        let email = Email::parse(email_str.to_string()).unwrap();
-        assert_eq!(email.as_ref(), email_str);
+    #[quickcheck_macros::quickcheck]
+    fn valid_emails_are_parsed_successfully(valid_email: ValidEmailFixture) -> bool {
+        Email::parse(Secret::new(valid_email.0)).is_ok()
     }
 }

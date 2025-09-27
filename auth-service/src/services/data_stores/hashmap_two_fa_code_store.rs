@@ -39,11 +39,12 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
 mod tests {
     use super::*;
     use crate::domain::Email;
+    use secrecy::Secret;
 
     #[tokio::test]
     async fn test_add_and_get_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 
@@ -60,7 +61,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_code_not_found() {
         let store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
 
         let result = store.get_code(&email).await;
         assert_eq!(result, Err(TwoFACodeStoreError::LoginAttemptIdNotFound));
@@ -69,7 +70,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 

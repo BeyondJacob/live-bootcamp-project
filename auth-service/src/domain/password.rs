@@ -1,68 +1,67 @@
 use color_eyre::eyre::{eyre, Result};
+use secrecy::{ExposeSecret, Secret};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Password(String);
+#[derive(Debug, Clone)]
+pub struct Password(Secret<String>);
+
+impl PartialEq for Password {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Eq for Password {}
 
 impl Password {
-    pub fn parse(s: String) -> Result<Password> {
-        if s.len() >= 8 {
-            Ok(Password(s))
+    pub fn parse(s: Secret<String>) -> Result<Password> {
+        if validate_password(&s) {
+            Ok(Self(s))
         } else {
-            Err(eyre!("Password must be at least 8 characters long"))
+            Err(eyre!("Failed to parse string to a Password type"))
         }
     }
 }
 
-impl AsRef<str> for Password {
-    fn as_ref(&self) -> &str {
+fn validate_password(s: &Secret<String>) -> bool {
+    s.expose_secret().len() >= 8
+}
+
+impl AsRef<Secret<String>> for Password {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use quickcheck_macros::quickcheck;
+    use super::Password;
+
+    use fake::faker::internet::en::Password as FakePassword;
+    use fake::Fake;
+    use secrecy::Secret;
 
     #[test]
-    fn valid_passwords_are_parsed_successfully() {
-        let valid_passwords = vec![
-            "password123",
-            "very_long_password_with_many_characters",
-            "12345678",
-            "P@ssw0rd!",
-        ];
+    fn empty_string_is_rejected() {
+        let password = Secret::new("".to_string());
+        assert!(Password::parse(password).is_err());
+    }
+    #[test]
+    fn string_less_than_8_characters_is_rejected() {
+        let password = Secret::new("1234567".to_string());
+        assert!(Password::parse(password).is_err());
+    }
 
-        for password in valid_passwords {
-            assert!(Password::parse(password.to_string()).is_ok());
+    #[derive(Debug, Clone)]
+    struct ValidPasswordFixture(pub Secret<String>);
+
+    impl quickcheck::Arbitrary for ValidPasswordFixture {
+        fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
+            let password = FakePassword(8..30).fake_with_rng(g);
+            Self(Secret::new(password))
         }
     }
-
-    #[test]
-    fn short_passwords_are_rejected() {
-        let short_passwords = vec!["", "1", "1234567", "seven77"];
-
-        for password in short_passwords {
-            assert!(Password::parse(password.to_string()).is_err());
-        }
-    }
-
-    #[test]
-    fn exactly_8_chars_is_valid() {
-        let password = "12345678";
-        assert!(Password::parse(password.to_string()).is_ok());
-    }
-
-    #[quickcheck]
-    fn valid_passwords_dont_panic(password: String) -> bool {
-        let _ = Password::parse(password);
-        true
-    }
-
-    #[test]
-    fn password_as_ref_returns_inner_string() {
-        let password_str = "password123";
-        let password = Password::parse(password_str.to_string()).unwrap();
-        assert_eq!(password.as_ref(), password_str);
+    #[quickcheck_macros::quickcheck]
+    fn valid_passwords_are_parsed_successfully(valid_password: ValidPasswordFixture) -> bool {
+        Password::parse(valid_password.0).is_ok()
     }
 }

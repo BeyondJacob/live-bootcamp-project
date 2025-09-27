@@ -1,5 +1,6 @@
 use auth_service::utils::constants::JWT_COOKIE_NAME;
 use reqwest::cookie::CookieStore;
+use secrecy::Secret;
 
 use crate::helpers::{get_random_email, TestApp};
 use serde_json::json;
@@ -122,7 +123,7 @@ async fn should_return_401_if_banned_token() {
 
     // Add token to banned store
     let mut banned_store = app.banned_token_store.write().await;
-    banned_store.add_token(token.clone()).await.unwrap();
+    banned_store.add_token(Secret::new(token.clone())).await.unwrap();
     drop(banned_store);
 
     // Now test verify-token with the banned JWT

@@ -1,6 +1,7 @@
 use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
 use reqwest::cookie::CookieStore;
 use reqwest::Url;
+use secrecy::Secret;
 use serde_json;
 
 use crate::helpers::{get_random_email, TestApp};
@@ -93,7 +94,7 @@ async fn should_return_200_if_valid_jwt_cookie() {
 
     // Verify the token was added to the banned token store
     let banned_store = app.banned_token_store.read().await;
-    let is_banned = banned_store.contains_token(&token).await.unwrap();
+    let is_banned = banned_store.contains_token(&Secret::new(token)).await.unwrap();
     assert!(is_banned, "Token should be banned after logout");
     drop(banned_store); // Release the lock
 

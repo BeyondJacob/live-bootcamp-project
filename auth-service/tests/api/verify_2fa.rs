@@ -1,9 +1,10 @@
 use auth_service::{
-    domain::{Email, LoginAttemptId, TwoFACode, TwoFACodeStore},
+    domain::Email,
     routes::TwoFactorAuthResponse,
     utils::constants::JWT_COOKIE_NAME,
     ErrorResponse,
 };
+use secrecy::{ExposeSecret, Secret};
 use serde_json::json;
 
 use crate::helpers::{get_random_email, TestApp};
@@ -176,7 +177,7 @@ async fn should_return_401_if_old_code() {
 
     // Get the 2FA code from the store
     let two_fa_code_store = app.two_fa_code_store.read().await;
-    let email = Email::parse(random_email.clone()).unwrap();
+    let email = Email::parse(Secret::new(random_email.clone())).unwrap();
     let (_, first_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store); // Release the lock
 
@@ -191,7 +192,7 @@ async fn should_return_401_if_old_code() {
     let verify_body = json!({
         "email": &random_email,
         "loginAttemptId": &first_auth_response.login_attempt_id,
-        "2FACode": first_code.as_ref()
+        "2FACode": first_code.as_ref().expose_secret()
     });
 
     let response = app.post_verify_2fa(&verify_body).await;
@@ -234,7 +235,7 @@ async fn should_return_200_if_correct_code() {
 
     // Get the 2FA code from the store
     let two_fa_code_store = app.two_fa_code_store.read().await;
-    let email = Email::parse(random_email.clone()).unwrap();
+    let email = Email::parse(Secret::new(random_email.clone())).unwrap();
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store); // Release the lock
 
@@ -242,7 +243,7 @@ async fn should_return_200_if_correct_code() {
     let verify_body = json!({
         "email": &random_email,
         "loginAttemptId": &auth_response.login_attempt_id,
-        "2FACode": two_fa_code.as_ref()
+        "2FACode": two_fa_code.as_ref().expose_secret()
     });
 
     let response = app.post_verify_2fa(&verify_body).await;
@@ -287,7 +288,7 @@ async fn should_return_401_if_same_code_twice() {
 
     // Get the 2FA code from the store
     let two_fa_code_store = app.two_fa_code_store.read().await;
-    let email = Email::parse(random_email.clone()).unwrap();
+    let email = Email::parse(Secret::new(random_email.clone())).unwrap();
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store); // Release the lock
 
@@ -295,7 +296,7 @@ async fn should_return_401_if_same_code_twice() {
     let verify_body = json!({
         "email": &random_email,
         "loginAttemptId": &auth_response.login_attempt_id,
-        "2FACode": two_fa_code.as_ref()
+        "2FACode": two_fa_code.as_ref().expose_secret()
     });
 
     let response = app.post_verify_2fa(&verify_body).await;

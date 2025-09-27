@@ -13,6 +13,7 @@ use auth_service::{
     Application,
 };
 use reqwest::cookie::Jar;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::{
     postgres::{PgConnectOptions, PgConnection, PgPoolOptions},
     Connection, Executor, PgPool,
@@ -170,17 +171,17 @@ pub fn get_random_email() -> String {
 }
 
 async fn configure_postgresql() -> (PgPool, String) {
-    let postgresql_conn_url = DATABASE_URL.to_owned();
+    let postgresql_conn_url = DATABASE_URL.expose_secret();
 
     // We are creating a new database for each test case, and we need to ensure each database has a unique name!
     let db_name = Uuid::new_v4().to_string();
 
-    configure_database(&postgresql_conn_url, &db_name).await;
+    configure_database(postgresql_conn_url, &db_name).await;
 
     let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
 
     // Create a new connection pool and return it
-    let pool = get_postgres_pool(&postgresql_conn_url_with_db)
+    let pool = get_postgres_pool(&Secret::new(postgresql_conn_url_with_db))
         .await
         .expect("Failed to create Postgres connection pool!");
 
@@ -216,9 +217,9 @@ async fn configure_database(db_conn_string: &str, db_name: &str) {
 }
 
 async fn delete_database(db_name: &str) {
-    let postgresql_conn_url: String = DATABASE_URL.to_owned();
+    let postgresql_conn_url = DATABASE_URL.expose_secret();
 
-    let connection_options = PgConnectOptions::from_str(&postgresql_conn_url)
+    let connection_options = PgConnectOptions::from_str(postgresql_conn_url)
         .expect("Failed to parse PostgreSQL connection string");
 
     let mut connection = PgConnection::connect_with(&connection_options)
