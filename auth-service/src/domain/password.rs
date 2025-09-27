@@ -1,12 +1,14 @@
+use color_eyre::eyre::{eyre, Result};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Password(String);
 
 impl Password {
-    pub fn parse(s: String) -> Result<Password, String> {
+    pub fn parse(s: String) -> Result<Password> {
         if s.len() >= 8 {
             Ok(Password(s))
         } else {
-            Err("Password must be at least 8 characters long".to_string())
+            Err(eyre!("Password must be at least 8 characters long"))
         }
     }
 }
@@ -38,12 +40,7 @@ mod tests {
 
     #[test]
     fn short_passwords_are_rejected() {
-        let short_passwords = vec![
-            "",
-            "1",
-            "1234567",
-            "seven77",
-        ];
+        let short_passwords = vec!["", "1", "1234567", "seven77"];
 
         for password in short_passwords {
             assert!(Password::parse(password.to_string()).is_err());

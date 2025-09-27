@@ -8,20 +8,14 @@ pub struct VerifyTokenRequest {
     token: String,
 }
 
+#[tracing::instrument(name = "Verify token", skip_all)]
 pub async fn verify_token(
     State(state): State<AppState>,
     Json(body): Json<VerifyTokenRequest>,
 ) -> impl IntoResponse {
-    // First validate the token
-    if let Err(_) = validate_token(&body.token).await {
-        return StatusCode::UNAUTHORIZED;
-    }
-    
-    // Then check if it's banned
-    let banned_store = state.banned_token_store.read().await;
-    match banned_store.is_banned(&body.token).await {
-        Ok(true) => StatusCode::UNAUTHORIZED,
-        Ok(false) => StatusCode::OK,
+    // Validate the token and check if it's banned
+    match validate_token(&body.token, state.banned_token_store.clone()).await {
+        Ok(_) => StatusCode::OK,
         Err(_) => StatusCode::UNAUTHORIZED,
     }
 }

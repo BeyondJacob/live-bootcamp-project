@@ -6,9 +6,7 @@ use color_eyre::eyre::{eyre, Context, Result};
 
 use sqlx::PgPool;
 
-use crate::domain::{
-    Email, Password, User, UserStore, UserStoreError,
-};
+use crate::domain::{Email, Password, User, UserStore, UserStoreError};
 
 pub struct PostgresUserStore {
     pool: PgPool,
@@ -40,8 +38,9 @@ impl UserStore for PostgresUserStore {
         .execute(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::Database(db_err) 
-                if db_err.is_unique_violation() => UserStoreError::UserAlreadyExists,
+            sqlx::Error::Database(db_err) if db_err.is_unique_violation() => {
+                UserStoreError::UserAlreadyExists
+            }
             _ => UserStoreError::UnexpectedError(e.into()),
         })?;
 
@@ -82,8 +81,8 @@ impl UserStore for PostgresUserStore {
         let user = self.get_user(email).await?;
 
         verify_password_hash(
-            user.password.as_ref().to_owned(), 
-            password.as_ref().to_owned()
+            user.password.as_ref().to_owned(),
+            password.as_ref().to_owned(),
         )
         .await
         .map_err(|_| UserStoreError::InvalidCredentials)?;

@@ -25,7 +25,7 @@ async fn should_return_422_if_malformed_credentials() {
             // Empty JSON object
         }),
         json!("not an object"), // String instead of object
-        json!(123), // Number instead of object
+        json!(123),             // Number instead of object
     ];
 
     for invalid_body in test_cases {
@@ -80,13 +80,13 @@ async fn should_return_401_if_incorrect_credentials() {
     // First, create a user to test against
     let valid_email = get_random_email();
     let valid_password = "password123";
-    
+
     let signup_body = serde_json::json!({
         "email": &valid_email,
         "password": valid_password,
         "requires2FA": false
     });
-    
+
     // Create the user
     let response = app.post_signup(&signup_body).await;
     assert_eq!(response.status().as_u16(), 201);

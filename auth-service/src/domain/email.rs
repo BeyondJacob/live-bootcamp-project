@@ -1,14 +1,15 @@
+use color_eyre::eyre::{eyre, Result};
 use std::hash::Hash;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Email(String);
 
 impl Email {
-    pub fn parse(s: String) -> Result<Email, String> {
+    pub fn parse(s: String) -> Result<Email> {
         if validator::validate_email(&s) {
             Ok(Email(s))
         } else {
-            Err(format!("{} is not a valid email address", s))
+            Err(eyre!("{} is not a valid email address", s))
         }
     }
 }

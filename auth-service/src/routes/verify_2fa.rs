@@ -4,10 +4,11 @@ use serde::Deserialize;
 
 use crate::{
     app_state::AppState,
-    domain::{AuthAPIError, Email, LoginAttemptId, TwoFACode},
+    domain::{AuthAPIError, Email, LoginAttemptId, TwoFACode, TwoFACodeStoreError},
     utils::auth::generate_auth_cookie,
 };
 
+#[tracing::instrument(name = "Verify 2FA", skip_all)]
 pub async fn verify_2fa(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -32,7 +33,12 @@ pub async fn verify_2fa(
 
     let code_tuple = match two_fa_code_store.get_code(&email).await {
         Ok(tuple) => tuple,
-        Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials)),
+        Err(e) => match e {
+            TwoFACodeStoreError::LoginAttemptIdNotFound => {
+                return (jar, Err(AuthAPIError::IncorrectCredentials));
+            }
+            _ => return (jar, Err(AuthAPIError::UnexpectedError(e.into()))),
+        },
     };
 
     if code_tuple.0 != login_attempt_id || code_tuple.1 != two_fa_code {
@@ -42,16 +48,16 @@ pub async fn verify_2fa(
     // Drop the read lock and get a write lock to remove the code
     drop(two_fa_code_store);
     let mut two_fa_code_store = state.two_fa_code_store.write().await;
-    
+
     // Remove the 2FA code after successful verification
-    if two_fa_code_store.remove_code(&email).await.is_err() {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+    if let Err(e) = two_fa_code_store.remove_code(&email).await {
+        return (jar, Err(AuthAPIError::UnexpectedError(e.into())));
     }
 
     // Generate and set JWT cookie
     let auth_cookie = match generate_auth_cookie(&email) {
         Ok(cookie) => cookie,
-        Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
+        Err(e) => return (jar, Err(AuthAPIError::UnexpectedError(e))),
     };
 
     let updated_jar = jar.add(auth_cookie);

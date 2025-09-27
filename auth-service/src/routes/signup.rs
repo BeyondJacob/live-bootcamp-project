@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     app_state::AppState,
-    domain::{AuthAPIError, Email, Password, User, UserStoreError},
+    domain::{AuthAPIError, Email, Password, User},
 };
 
 #[tracing::instrument(name = "Signup", skip_all)]
@@ -28,7 +28,12 @@ pub async fn signup(
 
     // Add user to store
     if let Err(e) = user_store.add_user(user).await {
-        return Err(AuthAPIError::UnexpectedError(e.into()));
+        return match e {
+            crate::domain::UserStoreError::UserAlreadyExists => {
+                Err(AuthAPIError::UserAlreadyExists)
+            }
+            _ => Err(AuthAPIError::UnexpectedError(e.into())),
+        };
     }
 
     let response = Json(SignupResponse {

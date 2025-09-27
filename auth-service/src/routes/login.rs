@@ -14,6 +14,7 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+#[tracing::instrument(name = "Login", skip_all)]
 pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar, // New!
@@ -36,8 +37,10 @@ pub async fn login(
     if let Err(e) = user_store.validate_user(&email, &password).await {
         match e {
             UserStoreError::UserNotFound => return (jar, Err(AuthAPIError::IncorrectCredentials)),
-            UserStoreError::InvalidCredentials => return (jar, Err(AuthAPIError::IncorrectCredentials)),
-            _ => return (jar, Err(AuthAPIError::UnexpectedError)),
+            UserStoreError::InvalidCredentials => {
+                return (jar, Err(AuthAPIError::IncorrectCredentials))
+            }
+            _ => return (jar, Err(AuthAPIError::UnexpectedError(e.into()))),
         }
     }
 
@@ -54,8 +57,9 @@ pub async fn login(
     }
 }
 
+#[tracing::instrument(name = "Handle 2FA", skip_all)]
 async fn handle_2fa(
-    email: &Email, // New!
+    email: &Email,    // New!
     state: &AppState, // New!
     jar: CookieJar,
 ) -> (
@@ -66,28 +70,22 @@ async fn handle_2fa(
     let login_attempt_id = LoginAttemptId::default();
     let two_fa_code = TwoFACode::default();
 
-    // Store the ID and code in our 2FA code store. Return `AuthAPIError::UnexpectedError` if the operation fails
-    let mut two_fa_code_store = state.two_fa_code_store.write().await;
-    if two_fa_code_store
+    if let Err(e) = state
+        .two_fa_code_store
+        .write()
+        .await
         .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
         .await
-        .is_err()
     {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (jar, Err(AuthAPIError::UnexpectedError(e.into())));
     }
 
-    // TODO: send 2FA code via the email client. Return `AuthAPIError::UnexpectedError` if the operation fails.
-    if state
+    if let Err(e) = state
         .email_client
-        .send_email(
-            email,
-            "Your 2FA Code",
-            &format!("Your 2FA code is: {}", two_fa_code.as_ref()),
-        )
+        .send_email(email, "2FA Code", two_fa_code.as_ref())
         .await
-        .is_err()
     {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (jar, Err(AuthAPIError::UnexpectedError(e)));
     }
 
     // Finally, we need to return the login attempt ID to the client
@@ -99,7 +97,7 @@ async fn handle_2fa(
     (jar, Ok((StatusCode::PARTIAL_CONTENT, response)))
 }
 
-// New!
+#[tracing::instrument(name = "Handle no 2FA", skip_all)]
 async fn handle_no_2fa(
     email: &Email,
     jar: CookieJar,
@@ -109,11 +107,14 @@ async fn handle_no_2fa(
 ) {
     let auth_cookie = match generate_auth_cookie(email) {
         Ok(cookie) => cookie,
-        Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
+        Err(e) => return (jar, Err(AuthAPIError::UnexpectedError(e))),
     };
 
     let updated_jar = jar.add(auth_cookie);
-    (updated_jar, Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))))
+    (
+        updated_jar,
+        Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))),
+    )
 }
 
 // The login route can return 2 possible success responses.

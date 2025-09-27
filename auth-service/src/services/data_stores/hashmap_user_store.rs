@@ -24,7 +24,11 @@ impl UserStore for HashmapUserStore {
             .ok_or(UserStoreError::UserNotFound)
     }
 
-    async fn validate_user(&self, email: &Email, password: &Password) -> Result<(), UserStoreError> {
+    async fn validate_user(
+        &self,
+        email: &Email,
+        password: &Password,
+    ) -> Result<(), UserStoreError> {
         match self.users.get(email) {
             Some(user) => {
                 if &user.password == password {
@@ -50,10 +54,10 @@ mod tests {
             password: Password::parse("password123".to_string()).unwrap(),
             requires_2fa: false,
         };
-        
+
         // Test successful addition
         assert!(store.add_user(user.clone()).await.is_ok());
-        
+
         // Test duplicate user error
         assert_eq!(
             store.add_user(user).await,
@@ -69,16 +73,23 @@ mod tests {
             password: Password::parse("password123".to_string()).unwrap(),
             requires_2fa: true,
         };
-        
+
         // Test user not found
         assert_eq!(
-            store.get_user(&Email::parse("test@example.com".to_string()).unwrap()).await,
+            store
+                .get_user(&Email::parse("test@example.com".to_string()).unwrap())
+                .await,
             Err(UserStoreError::UserNotFound)
         );
-        
+
         // Add user and test successful retrieval
         store.add_user(user.clone()).await.unwrap();
-        assert_eq!(store.get_user(&Email::parse("test@example.com".to_string()).unwrap()).await, Ok(user));
+        assert_eq!(
+            store
+                .get_user(&Email::parse("test@example.com".to_string()).unwrap())
+                .await,
+            Ok(user)
+        );
     }
 
     #[tokio::test]
@@ -89,22 +100,38 @@ mod tests {
             password: Password::parse("password123".to_string()).unwrap(),
             requires_2fa: false,
         };
-        
+
         // Test user not found
         assert_eq!(
-            store.validate_user(&Email::parse("test@example.com".to_string()).unwrap(), &Password::parse("password123".to_string()).unwrap()).await,
+            store
+                .validate_user(
+                    &Email::parse("test@example.com".to_string()).unwrap(),
+                    &Password::parse("password123".to_string()).unwrap()
+                )
+                .await,
             Err(UserStoreError::UserNotFound)
         );
-        
+
         // Add user
         store.add_user(user).await.unwrap();
-        
+
         // Test successful validation
-        assert!(store.validate_user(&Email::parse("test@example.com".to_string()).unwrap(), &Password::parse("password123".to_string()).unwrap()).await.is_ok());
-        
+        assert!(store
+            .validate_user(
+                &Email::parse("test@example.com".to_string()).unwrap(),
+                &Password::parse("password123".to_string()).unwrap()
+            )
+            .await
+            .is_ok());
+
         // Test invalid credentials
         assert_eq!(
-            store.validate_user(&Email::parse("test@example.com".to_string()).unwrap(), &Password::parse("wrongpassword".to_string()).unwrap()).await,
+            store
+                .validate_user(
+                    &Email::parse("test@example.com".to_string()).unwrap(),
+                    &Password::parse("wrongpassword".to_string()).unwrap()
+                )
+                .await,
             Err(UserStoreError::InvalidCredentials)
         );
     }

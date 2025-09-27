@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use axum::{body::Body, extract::Request, response::Response};
-use tracing::{Level, Span};
 use color_eyre::eyre::Result;
+use tracing::{Level, Span};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};

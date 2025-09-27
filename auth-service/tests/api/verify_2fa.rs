@@ -113,7 +113,7 @@ async fn should_return_401_if_incorrect_credentials() {
     let verify_body = json!({
         "email": &random_email,
         "loginAttemptId": &auth_response.login_attempt_id,
-        "2FACode": "000000"  // Wrong code
+        "2FACode": "123456"  // Wrong code but valid format
     });
 
     let response = app.post_verify_2fa(&verify_body).await;
@@ -173,7 +173,7 @@ async fn should_return_401_if_old_code() {
         .json::<TwoFactorAuthResponse>()
         .await
         .unwrap();
-    
+
     // Get the 2FA code from the store
     let two_fa_code_store = app.two_fa_code_store.read().await;
     let email = Email::parse(random_email.clone()).unwrap();
@@ -260,7 +260,7 @@ async fn should_return_200_if_correct_code() {
 }
 
 #[tokio::test]
-async fn should_return_401_if_same_code_twice() {    
+async fn should_return_401_if_same_code_twice() {
     let mut app = TestApp::new().await;
 
     // Create a test user with 2FA enabled

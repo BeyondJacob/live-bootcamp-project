@@ -13,7 +13,10 @@ use auth_service::{
     Application,
 };
 use reqwest::cookie::Jar;
-use sqlx::{postgres::{PgConnectOptions, PgConnection, PgPoolOptions}, Connection, Executor, PgPool};
+use sqlx::{
+    postgres::{PgConnectOptions, PgConnection, PgPoolOptions},
+    Connection, Executor, PgPool,
+};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -35,7 +38,8 @@ impl TestApp {
         let redis_conn = Arc::new(RwLock::new(configure_redis()));
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
-        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_conn.clone())));
+        let banned_token_store =
+            Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_conn.clone())));
         let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(redis_conn)));
         let email_client = Arc::new(MockEmailClient);
         let app_state = AppState::new(
@@ -179,7 +183,7 @@ async fn configure_postgresql() -> (PgPool, String) {
     let pool = get_postgres_pool(&postgresql_conn_url_with_db)
         .await
         .expect("Failed to create Postgres connection pool!");
-    
+
     (pool, db_name)
 }
 
@@ -195,7 +199,6 @@ async fn configure_database(db_conn_string: &str, db_name: &str) {
         .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
         .await
         .expect("Failed to create database.");
-
 
     // Connect to new database
     let db_conn_string = format!("{}/{}", db_conn_string, db_name);
