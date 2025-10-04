@@ -6,6 +6,8 @@ use auth_service::{
 };
 use secrecy::{ExposeSecret, Secret};
 use serde_json::json;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, ResponseTemplate};
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -98,6 +100,13 @@ async fn should_return_401_if_incorrect_credentials() {
 
     app.post_signup(&signup_body).await;
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     // Login to get a valid login attempt ID and 2FA code
     let login_body = json!({
         "email": &random_email,
@@ -163,6 +172,13 @@ async fn should_return_401_if_old_code() {
 
     app.post_signup(&signup_body).await;
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&app.email_server)
+        .await;
+
     let login_body = json!({
         "email": &random_email,
         "password": "password123"
@@ -221,6 +237,13 @@ async fn should_return_200_if_correct_code() {
 
     app.post_signup(&signup_body).await;
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     // Login to get a valid login attempt ID
     let login_body = json!({
         "email": &random_email,
@@ -272,7 +295,16 @@ async fn should_return_401_if_same_code_twice() {
         "requires2FA": true
     });
 
-    app.post_signup(&signup_body).await;
+    let response = app.post_signup(&signup_body).await;
+
+    assert_eq!(response.status().as_u16(), 201);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     // Login to get a valid login attempt ID
     let login_body = json!({
